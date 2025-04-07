@@ -10,6 +10,9 @@ const SBCTokenProxy = artifacts.require('SBCTokenProxy.sol')
 const SBCToken = artifacts.require('SBCToken.sol')
 const IERC677 = artifacts.require('IERC677.sol')
 
+const min_deposit = '31250000000000000'; // 0.03125 GNO
+const deposit_data = require('../scripts/deposit-data.json')
+
 const deposit = {
   pubkey: '0x85e52247873439b180471ceb94ef9966c2cef1c194cc926e7d6494fecccbcdc076bcd751309f174dd8b7e21402c85ac0',
   withdrawal_credentials: '0x0100000000000000000000000ae055097c6d159879521c384f1d2123d1f195e6',
@@ -176,6 +179,43 @@ contract('SBCDepositContractProxy', (accounts) => {
     expect(await contract.get_deposit_root()).to.be.equal('0xa11734d2f286e9501a749b907c37712dbc762d01b8a72073a2f272a89b835634')
     expect((await stake.balanceOf(contract.address)).toString()).to.be.equal('3000000000000000000')
   })
+
+  it('should process large number of deposits', async () => {
+    const depositCount = 256
+    const pubkeys = []
+    const signatures = []
+    const deposit_data_roots = []
+    const values = []
+    for (let i = 0; i < depositCount; i++) {
+      pubkeys.push(deposit_data[i].pubkey)
+      signatures.push(deposit_data[i].signature)
+      deposit_data_roots.push('0x' + deposit_data[i].deposit_data_root)
+      values.push(min_deposit)
+    }
+    const pubkeysHex = joinHex(pubkeys)
+    const withdrawal_credentialsHex = '0x' + deposit_data[0].withdrawal_credentials
+    const signaturesHex = joinHex(signatures)
+
+    const deposit = BigInt(min_deposit) * BigInt(depositCount)
+    await stake.approve(contract.address, deposit.toString())
+
+    const time_start = new Date().getTime()
+    const tx = await contract.batchDeposit(
+      pubkeysHex,
+      withdrawal_credentialsHex,
+      signaturesHex,
+      deposit_data_roots,
+      values,
+    )
+    const time_end = new Date().getTime()
+    const gasUsed = tx.receipt.gasUsed
+    const gasPrice = tx.receipt.effectiveGasPrice
+    const gasCost = gasUsed * gasPrice
+    
+    console.log('|', depositCount, '|', gasUsed/1e6, '|', gasPrice/1e10, '|',  gasCost/1e10, '|', (time_end - time_start)/1000, '|')
+  })
+
+
 
   it('should deposit via transferAndCall', async () => {
     const invalidData = joinHex([deposit.withdrawal_credentials, deposit.pubkey, deposit.signature, invalidDataRoot])
