@@ -5,6 +5,10 @@ const privateKey = process.env.DEPLOYMENT_ACCOUNT_PRIVATE_KEY;
 
 module.exports = {
   networks: {
+    chiado: {
+      provider: () => new HDWalletProvider(process.env.CHIADO_ACCOUNT_PRIVATE_KEY, process.env.CHIADO_RPC_URL),
+      network_id: "10200",
+    },
     devnet2: {
       provider: () => new HDWalletProvider(process.env.DEVNET_ACCOUNT_PRIVATE_KEY, process.env.DEVNET2_RPC_URL),
       network_id: "*",
